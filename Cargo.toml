@@ -1,12 +1,12 @@
 [package]
-name = "pars"
+name = "pa-rs"
 license = "MIT"
 version = "0.1.0"
 authors = ["Shashi Kant <shashitnak42@proton.me"]
 edition = "2021"
 description = "Parsing library using concepts of Parser combinators"
 repository = "https://github.com/shashitnak/pars"
-documentation = "https://docs.rs/pars"
+documentation = "https://docs.rs/pa-rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
