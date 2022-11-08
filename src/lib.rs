@@ -231,7 +231,7 @@ pub fn parse_char(ch: char) -> Parser<char> {
 }
 
 pub fn parse_str(string: &str) -> Parser<String> {
-    parse_list(string.chars().map(|ch| parse_char(ch)))
+    parse_all_of(string.chars().map(|ch| parse_char(ch)))
 }
 
 pub fn parse_bool() -> Parser<bool> {
@@ -253,7 +253,7 @@ pub fn parse_one_of<T: 'static, I: IntoIterator<Item = Parser<T>>>(list: I) -> P
         .unwrap_or(Parser::failed())
 }
 
-pub fn parse_list<T: 'static, I: IntoIterator<Item = Parser<T>>, C: FromIterator<T>>(
+pub fn parse_all_of<T: 'static, I: IntoIterator<Item = Parser<T>>, C: FromIterator<T>>(
     list: I,
 ) -> Parser<C> {
     list.into_iter()
@@ -290,7 +290,7 @@ pub fn parse_uint() -> Parser<usize> {
 }
 
 pub fn parse_ints() -> Parser<String> {
-    parse_one_of([parse_list([parse_str("-"), parse_uints()]), parse_uints()])
+    parse_one_of([parse_all_of([parse_str("-"), parse_uints()]), parse_uints()])
 }
 
 pub fn parse_int() -> Parser<i64> {
@@ -299,7 +299,7 @@ pub fn parse_int() -> Parser<i64> {
 
 pub fn parse_float() -> Parser<f64> {
     parse_one_of([
-        parse_list([
+        parse_all_of([
             parse_ints(),
             parse_str("."),
             parse_one_of([parse_uints(), parse_white_space()])
@@ -332,6 +332,26 @@ pub fn parse_zero_or_more<T: 'static>(mut p: Parser<T>) -> Parser<Vec<T>> {
     })
 }
 
+pub fn parse_sbws<T: 'static>(p: Parser<T>) -> Parser<T> {
+    parse_white_space() >> p << parse_white_space()
+}
+
+pub fn parse_list_of<T: 'static, F>(mut p: F) -> Parser<Vec<T>>
+    where
+        F: FnMut() -> Parser<T>
+{
+    parse_char('[') >> (
+        parse_one_of([
+            (parse_zero_or_more(parse_sbws(p()) << parse_char(',')) & parse_sbws(p()))
+                .map(|(mut v, a)| {
+                    v.push(a);
+                    v
+                }),
+            parse_white_space().map(|_| vec![])
+        ])
+    ) << parse_char(']')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -360,5 +380,23 @@ mod tests {
         assert_eq!(parse_float().run("-123.43"), Ok(-123.43));
         assert_eq!(parse_float().run("0.23"), Ok(0.23));
         assert_eq!(parse_float().run("23."), Ok(23.));
+    }
+
+    #[test]
+    fn test_parse_list_of() {
+        let parse_list_of_float = || parse_list_of(|| parse_float());
+
+        assert_eq!(parse_list_of_float().run("[1.2, 2.3, 3.4]"), Ok(vec![1.2, 2.3, 3.4]));
+        assert_eq!(parse_list_of_float().run("[1.2]"), Ok(vec![1.2]));
+        assert_eq!(parse_list_of_float().run("[]"), Ok(vec![]));
+
+        let parse_list_of_list_of_float = ||
+            parse_list_of(||
+                parse_list_of_float())
+                .run("[[1.2 , 2.2 ], [ 2.3], [3.4,1.0,2.0 ,3.0]]");
+        assert_eq!(
+            parse_list_of_list_of_float(),
+            Ok(vec![vec![1.2, 2.2], vec![2.3], vec![3.4, 1.0, 2.0, 3.0]])
+        );
     }
 }
