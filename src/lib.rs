@@ -108,4 +108,15 @@ mod tests {
             Ok(vec![vec![1.2, 2.2], vec![2.3], vec![3.4, 1.0, 2.0, 3.0]])
         );
     }
+
+    #[test]
+    fn test_quoted_str_p() {
+        assert_eq!(dq_str_p().run("\"abcd\""), Ok(format!("abcd")));
+        assert_eq!(dq_str_p().run("\"abcd\"123"), Ok(format!("abcd")));
+        assert_eq!(dq_str_p().run("\"ab\n 'c' \td\""), Ok(format!("ab\n 'c' \td")));
+
+        assert_eq!(sq_str_p().run("\'abcd\'"), Ok(format!("abcd")));
+        assert_eq!(sq_str_p().run("\'abcd\'123"), Ok(format!("abcd")));
+        assert_eq!(sq_str_p().run("\'ab\n \"c\" \td\'"), Ok(format!("ab\n \"c\" \td")));
+    }
 }

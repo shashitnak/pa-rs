@@ -26,7 +26,7 @@ pub trait Parse
 {
   type Result;
 
-  fn parse<'a>(&self, input: &'a str) -> ParseResult<'a, Self::Result>;
+  fn parse<'b>(&self, input: &'b str) -> ParseResult<'b, Self::Result>;
 
   fn run(&self, input: &str) -> Result<Self::Result, String> {
     self.parse(input).map(|x| x.result)
@@ -103,6 +103,14 @@ pub trait Parse
   fn sep_by_ref<'a>(&'a self, sep: char) -> SepByRef<'a, Self> {
     SepByRef(self, sep)
   }
+
+  fn parse_while<F: Fn(&Self::Result) -> bool>(self, f: F) -> ParseWhile<Self, F> {
+    ParseWhile(self, f)
+  }
+
+  fn parse_while_ref<'a, F: Fn(&Self::Result) -> bool>(&'a self, f: &'a F) -> ParseWhileRef<'a, Self, F> {
+    ParseWhileRef(self, f)
+  }
 }
 
 
@@ -133,6 +141,20 @@ impl Parse for CharParser {
         }
       },
       None => Err(format!("No Characters left to parse"))
+    }
+  }
+}
+
+
+pub struct AnyCharParser;
+
+impl Parse for AnyCharParser {
+  type Result = char;
+
+  fn parse<'b>(&self, input: &'b str) -> ParseResult<'b, Self::Result> {
+    match input.as_bytes().get(0) {
+      Some(&ch) => Ok(ParseOk { result: ch as char, input: &input[1..] }),
+      None => Err(format!("No Input left to parse"))
     }
   }
 }
@@ -464,6 +486,38 @@ impl<'a, T: Parse> Parse for ParseSquareListRef<'a, T> {
   }
 }
 
+pub struct ParseWhile<T: Parse, F: Fn(&'_ <T as Parse>::Result) -> bool>(T, F);
+
+impl<'a, T: Parse, F: Fn(&'_ <T as Parse>::Result) -> bool> Parse for ParseWhile<T, F> {
+  type Result = Vec<<T as Parse>::Result>;
+
+  fn parse<'b>(&self, input: &'b str) -> ParseResult<'b, Self::Result> {
+      ParseWhileRef(&self.0, &self.1).parse(input)
+  }
+}
+
+pub struct ParseWhileRef<'a, T: Parse, F: Fn(&'_ <T as Parse>::Result) -> bool>(&'a T, &'a F);
+
+impl<'a, T: Parse, F: Fn(&'_ <T as Parse>::Result) -> bool> Parse for ParseWhileRef<'a, T, F> {
+  type Result = Vec<<T as Parse>::Result>;
+
+  fn parse<'b>(&self, mut input: &'b str) -> ParseResult<'b, Self::Result> {
+    let mut results = vec![];
+
+    while let Ok(ParseOk { result, input: input1 }) = self.0.parse(input) {
+      let pred = self.1(&result);
+      if pred {
+        results.push(result);
+        input = input1;
+      } else {
+        break
+      }
+    }
+
+    Ok(ParseOk::new(results, input))
+  }
+}
+
 pub struct StringParser(String);
 
 impl Parse for StringParser {
@@ -480,8 +534,13 @@ impl Parse for StringParser {
 }
 
 
+
 pub fn char_p(ch: char) -> CharParser {
   CharParser(ch)
+}
+
+pub fn any_char_p() -> AnyCharParser {
+  AnyCharParser
 }
 
 pub fn str_p(st: &str) -> StringParser {
@@ -544,4 +603,18 @@ pub fn whitespace() -> WhitespaceParser {
 
 pub fn list_square_p<T: Parse>(t: T) -> ParseSquareList<T> {
   ParseSquareList(t)
+}
+
+pub fn dq_str_p() -> impl Parse<Result=String> {
+  char_p('"')
+    .drop(any_char_p().parse_while(|&x| x != '"'))
+    .keep(char_p('"'))
+    .map(|x| x.into_iter().collect())
+}
+
+pub fn sq_str_p() -> impl Parse<Result=String> {
+  char_p('\'')
+    .drop(any_char_p().parse_while(|&x| x != '\''))
+    .keep(char_p('\''))
+    .map(|x| x.into_iter().collect())
 }
