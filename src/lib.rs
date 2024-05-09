@@ -1,9 +1,5 @@
-#![feature(box_patterns)]
-#![feature(box_syntax)]
-
-pub mod slow_parser;
 pub mod parser;
-
+pub mod slow_parser;
 
 #[cfg(test)]
 mod tests {
@@ -43,14 +39,17 @@ mod tests {
     fn test_parse_list_of() {
         let parse_list_of_float = || parse_list_of(|| parse_float());
 
-        assert_eq!(parse_list_of_float().run("[1.2, 2.3, 3.4]"), Ok(vec![1.2, 2.3, 3.4]));
+        assert_eq!(
+            parse_list_of_float().run("[1.2, 2.3, 3.4]"),
+            Ok(vec![1.2, 2.3, 3.4])
+        );
         assert_eq!(parse_list_of_float().run("[1.2]"), Ok(vec![1.2]));
         assert_eq!(parse_list_of_float().run("[]"), Ok(vec![]));
 
-        let parse_list_of_list_of_float = ||
-            parse_list_of(||
-                parse_list_of_float())
-                .run("[[1.2 , 2.2 ], [ 2.3], [3.4,1.0,2.0 ,3.0]]");
+        let parse_list_of_list_of_float = || {
+            parse_list_of(|| parse_list_of_float())
+                .run("[[1.2 , 2.2 ], [ 2.3], [3.4,1.0,2.0 ,3.0]]")
+        };
         assert_eq!(
             parse_list_of_list_of_float(),
             Ok(vec![vec![1.2, 2.2], vec![2.3], vec![3.4, 1.0, 2.0, 3.0]])
@@ -96,15 +95,16 @@ mod tests {
     fn test_list_of_p() {
         let parse_list_of_float = list_square_p(float_p());
 
-        assert_eq!(parse_list_of_float.run("[1.2, 2.3, 3.4]"), Ok(vec![1.2, 2.3, 3.4]));
+        assert_eq!(
+            parse_list_of_float.run("[1.2, 2.3, 3.4]"),
+            Ok(vec![1.2, 2.3, 3.4])
+        );
         assert_eq!(parse_list_of_float.run("[1.2]"), Ok(vec![1.2]));
         assert_eq!(parse_list_of_float.run("[]"), Ok(vec![]));
 
-        let parse_list_of_list_of_float
-            = list_square_p(parse_list_of_float);
+        let parse_list_of_list_of_float = list_square_p(parse_list_of_float);
         assert_eq!(
-            parse_list_of_list_of_float
-                .run("[[1.2 , 2.2 ], [ 2.3], [3.4,1.0,2.0 ,3.0]]"),
+            parse_list_of_list_of_float.run("[[1.2 , 2.2 ], [ 2.3], [3.4,1.0,2.0 ,3.0]]"),
             Ok(vec![vec![1.2, 2.2], vec![2.3], vec![3.4, 1.0, 2.0, 3.0]])
         );
     }
@@ -113,10 +113,16 @@ mod tests {
     fn test_quoted_str_p() {
         assert_eq!(dq_str_p().run("\"abcd\""), Ok(format!("abcd")));
         assert_eq!(dq_str_p().run("\"abcd\"123"), Ok(format!("abcd")));
-        assert_eq!(dq_str_p().run("\"ab\n 'c' \td\""), Ok(format!("ab\n 'c' \td")));
+        assert_eq!(
+            dq_str_p().run("\"ab\n 'c' \td\""),
+            Ok(format!("ab\n 'c' \td"))
+        );
 
         assert_eq!(sq_str_p().run("\'abcd\'"), Ok(format!("abcd")));
         assert_eq!(sq_str_p().run("\'abcd\'123"), Ok(format!("abcd")));
-        assert_eq!(sq_str_p().run("\'ab\n \"c\" \td\'"), Ok(format!("ab\n \"c\" \td")));
+        assert_eq!(
+            sq_str_p().run("\'ab\n \"c\" \td\'"),
+            Ok(format!("ab\n \"c\" \td"))
+        );
     }
 }

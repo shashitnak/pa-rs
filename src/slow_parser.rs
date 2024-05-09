@@ -26,7 +26,9 @@ impl<T> Parser<T> {
     where
         F: FnMut(PString) -> _ParseResult<T> + 'static,
     {
-        Parser { run_parser: box f }
+        Parser {
+            run_parser: Box::new(f),
+        }
     }
 }
 
@@ -223,7 +225,7 @@ pub fn parse_char(ch: char) -> Parser<char> {
                 (input, Ok(ch))
             }
             Some(y) => (input, Err(format!("Expected {ch:?} got {y}"))),
-            None          => (input, Err(format!("Expected {ch:?} got empty string")))
+            None => (input, Err(format!("Expected {ch:?} got empty string"))),
         }
     })
 }
@@ -300,9 +302,9 @@ pub fn parse_float() -> Parser<f64> {
         parse_all_of([
             parse_ints(),
             parse_str("."),
-            parse_one_of([parse_uints(), parse_white_space()])
+            parse_one_of([parse_uints(), parse_white_space()]),
         ]),
-        parse_ints()
+        parse_ints(),
     ])
     .map(|x: String| x.parse().expect("f64: This will never fail!"))
 }
@@ -335,17 +337,18 @@ pub fn parse_sbws<T: 'static>(p: Parser<T>) -> Parser<T> {
 }
 
 pub fn parse_list_of<T: 'static, F>(mut p: F) -> Parser<Vec<T>>
-    where
-        F: FnMut() -> Parser<T>
+where
+    F: FnMut() -> Parser<T>,
 {
-    parse_char('[') >> (
-        parse_one_of([
-            (parse_zero_or_more(parse_sbws(p()) << parse_char(',')) & parse_sbws(p()))
-                .map(|(mut v, a)| {
+    parse_char('[')
+        >> (parse_one_of([
+            (parse_zero_or_more(parse_sbws(p()) << parse_char(',')) & parse_sbws(p())).map(
+                |(mut v, a)| {
                     v.push(a);
                     v
-                }),
-            parse_white_space().map(|_| vec![])
-        ])
-    ) << parse_char(']')
+                },
+            ),
+            parse_white_space().map(|_| vec![]),
+        ]))
+        << parse_char(']')
 }
